@@ -1,0 +1,112 @@
+<button id="generateButton" style="font-size: 2em;"> Generate Mega Millions Numbers </button>
+<div id="results"></div>
+<div id="timer"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+<script>
+    const TIMEOUT_PERIOD = 15; // Timeout period in seconds
+    let isGenerating = false;
+
+    async function getRandomMegaMillionsNumbers() {
+        const url = "https://www.random.org/integers/";
+
+        // Parameters for fetching 5 unique main numbers (1-70)
+        const params = {
+            num: 5,
+            min: 1,
+            max: 70,
+            col: 1,
+            base: 10,
+            format: 'plain',
+            rnd: 'new',
+            unique: 'on'
+        };
+
+        // Axios configuration with User-Agent header and timeout
+        const axiosConfig = {
+            headers: {
+                'User-Agent': 'demo@silv.blog' // Providing an email in the User-Agent as required by RANDOM.ORG
+            },
+            timeout: TIMEOUT_PERIOD * 1000 // Timeout to allow the server sufficient time to fulfill the request
+        };
+
+        try {
+            // Fetching the main numbers
+            const response = await axios.get(url, { params, ...axiosConfig });
+            const mainNumbers = response.data.trim().split('\n').map(Number).sort((a, b) => a - b);
+
+            // Parameters for fetching the Mega Ball number (1-25)
+            const megaBallParams = {
+                num: 1,
+                min: 1,
+                max: 25,
+                col: 1,
+                base: 10,
+                format: 'plain',
+                rnd: 'new'
+            };
+            // Fetching the Mega Ball number
+            const megaBallResponse = await axios.get(url, { params: megaBallParams, ...axiosConfig });
+            const megaBall = parseInt(megaBallResponse.data.toString().trim(), 10);
+
+            return { mainNumbers, megaBall };
+        } catch (error) {
+            throw new Error(`Error fetching numbers: ${error.response ? error.response.data : error.message}`);
+        }
+    }
+
+    function startTimer(duration, display) {
+        let timer = duration, minutes, seconds;
+        const intervalId = setInterval(() => {
+            minutes = parseInt(timer / 60, 10);
+            seconds = parseInt(timer % 60, 10);
+
+            minutes = minutes < 10 ? "0" + minutes : minutes;
+            seconds = seconds < 10 ? "0" + seconds : seconds;
+
+            display.textContent = `Please wait ${minutes}:${seconds} before generating again.`;
+
+            if (--timer < 0) {
+                clearInterval(intervalId);
+                isGenerating = false;
+                document.getElementById('generateButton').disabled = false;
+                display.textContent = "";
+            }
+        }, 1000);
+    }
+
+    document.getElementById('generateButton').addEventListener('click', async () => {
+        if (isGenerating) return;
+
+        isGenerating = true;
+        document.getElementById('generateButton').disabled = true;
+        const resultsDiv = document.getElementById('results');
+        const timerDiv = document.getElementById('timer');
+        resultsDiv.innerHTML = 'Generating...';
+
+        try {
+            const ticket1 = await getRandomMegaMillionsNumbers();
+            const ticket2 = await getRandomMegaMillionsNumbers();
+
+            resultsDiv.innerHTML = `
+                <p>Ticket 1: ${formatNumbers(ticket1.mainNumbers, ticket1.megaBall)}</p>
+                <p>Ticket 2: ${formatNumbers(ticket2.mainNumbers, ticket2.megaBall)}</p>
+            `;
+
+            // Start the timer to enforce the waiting period
+            startTimer(TIMEOUT_PERIOD, timerDiv);
+        } catch (error) {
+            resultsDiv.innerHTML = `<p>Error: ${error.message}</p>`;
+            isGenerating = false;
+            document.getElementById('generateButton').disabled = false;
+        }
+    });
+
+    function formatNumbers(mainNumbers, megaBall) {
+        // Helper function to format numbers in lotto balls
+        const ballStyle = "display:inline-block;width:50px;height:50px;line-height:50px;margin:5px;border-radius:50%;text-align:center;font-size:1.5em;font-weight:bold;color:white;";
+        const formattedMainNumbers = mainNumbers.map(num => `<span style="${ballStyle}background-color:blue;">${num}</span>`).join(' ');
+        const formattedMegaBall = `<span style="${ballStyle}background-color:gold;">${megaBall}</span>`;
+        return `${formattedMainNumbers} Mega Ball: ${formattedMegaBall}`;
+    }
+</script>
